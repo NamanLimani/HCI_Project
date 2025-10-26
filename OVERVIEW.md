@@ -4,19 +4,15 @@
 
 A Chrome extension that automatically analyzes articles to identify factual claims and verifies them against reliable sources using AI and fact-checking APIs. Helps users critically evaluate content by showing which claims are verified, questionable, or disputed.
 
-### Problem Statement
-Existing solutions (based on benchmarking study):
-- **AI detectors**: High false positive rates
-- **Bias raters**: Subjective, rate publishers not content
-- **Fact-checkers**: Manual, require user to search claims themselves
-- **No tool exists** that automatically verifies claims and sources within articles in real-time
+MVP core features: 
+-> extracts claims made by the article 
+-> checks included sources and searches for other sources that back or dispute
+-> returns results: verified/questionable/disputed
 
-### Solution Gap We're Filling
-- Automatically extract claims from articles
-- Verify each claim against multiple sources
-- Check if cited sources actually support the claims
-- Show verification results inline while reading
-
+V2+ features:
+- Languge sentiment analysis
+- Overall site analysis (credibility, political bias, etc.)
+- AI Authorship analysis
 ---
 
 ## Tech Stack
@@ -415,39 +411,6 @@ verify/
 ├── README.md                      # User-facing documentation
 └── Benchmarking.pdf              # Research reference
 ```
-
----
-
-## MVP Scope
-
-### Must Have (Week 1-3)
-- ✅ Extract article text from webpage
-- ✅ Backend API endpoint for analysis
-- ✅ Perplexity integration for claim extraction
-- ✅ Perplexity integration for claim verification
-- ✅ Google Fact Check API integration
-- ✅ Basic popup UI
-- ✅ Side panel with results
-- ✅ Display verification status (verified/questionable/disputed)
-- ✅ Show sources for each claim
-- ✅ Simple caching (don't re-analyze same URL)
-
-### Nice to Have (v2)
-- ⏸️ Inline highlighting of claims on page
-- ⏸️ Click highlighted claim → show verification
-- ⏸️ Export verification report
-- ⏸️ Settings page (API keys, sensitivity)
-- ⏸️ Dark mode
-- ⏸️ History of analyzed articles
-
-### Future Features
-- 🔮 Verify if cited URLs actually exist
-- 🔮 Check if cited sources support the claim
-- 🔮 Academic paper verification via CrossRef
-- 🔮 Real-time analysis as you scroll
-- 🔮 Browser support (Firefox, Edge)
-- 🔮 Mobile app
-
 ---
 
 ## Development Workflow
@@ -611,36 +574,6 @@ CACHE_DURATION_HOURS=24
 
 ---
 
-## Troubleshooting
-
-### Common Issues
-
-**Extension won't load:**
-- Check manifest.json syntax
-- Verify all file paths
-- Check console for errors
-- Reload extension
-
-**Backend won't start:**
-- Check .env file exists
-- Verify API keys are set
-- Check port 3000 is available
-- Check Node version (18+)
-
-**API errors:**
-- Verify API keys are valid
-- Check rate limits
-- Check network connection
-- Check CORS settings
-
-**No results showing:**
-- Check backend is running
-- Check extension can reach localhost:3000
-- Check article text is extracted
-- Check browser console for errors
-
----
-
 ## Security & Privacy
 
 ### Data Handling
@@ -651,43 +584,9 @@ CACHE_DURATION_HOURS=24
 - **No tracking** or analytics
 
 ### API Key Security
-- Store in `.env` file (backend)
+- Store in .secrets folder (backend)
 - Never commit to git
 - Use `.gitignore`
-- For production: Use environment variables
-
-### Content Security
-- Sanitize article text before processing
-- Validate API responses
-- Limit article length (prevent abuse)
-- Rate limit requests
-
----
-
-## Demo Preparation
-
-### Demo Script
-1. Open Chrome with extension loaded
-2. Navigate to test article with known claims
-3. Click extension icon
-4. Show popup with "Analyze" button
-5. Click analyze, show loading state
-6. Side panel opens with results
-7. Walk through each claim:
-   - Show verified claim with sources
-   - Show questionable claim
-   - Show disputed claim
-8. Click "View Sources" on a claim
-9. Highlight key features:
-   - Speed (5-15 seconds)
-   - Source citations
-   - Confidence levels
-   - Fact-check integration
-
-### Demo Articles to Prepare
-1. **Good article**: BBC news with verifiable claims
-2. **Questionable article**: Blog post with unsourced claims
-3. **False claims**: Article with known misinformation
 
 ---
 
@@ -705,31 +604,7 @@ CACHE_DURATION_HOURS=24
 - [Chrome DevTools](https://developer.chrome.com/docs/devtools/) - Debugging
 - [React DevTools](https://react.dev/learn/react-developer-tools) - React debugging
 
-### Similar Projects (Research)
-- NewsGuard (source rating)
-- Snopes (fact-checking)
-- InVID (video verification)
-- Grammarly (injection pattern)
-
 ---
-
-## Contact & Collaboration
-
-### Communication Channels
-- GitHub Issues: Bug reports, feature requests
-- Pull Requests: Code review, discussion
-- Documentation: Update this file as project evolves
-
-### Code Review Checklist
-- [ ] Code follows style guide
-- [ ] Functions are documented
-- [ ] Error handling included
-- [ ] Tested locally
-- [ ] No hardcoded secrets
-- [ ] No console.logs in production code
-
----
-
 ## Next Steps
 
 ### Immediate Actions
@@ -756,10 +631,3 @@ CACHE_DURATION_HOURS=24
 - All features working
 - Tested on multiple sites
 - Demo-ready
-
----
-
-**Last Updated:** October 2025  
-**Version:** 0.1.0 (MVP)  
-**Status:** Planning Phase
-
