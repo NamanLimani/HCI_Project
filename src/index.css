@@ -1,0 +1,10 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Apply base styles to the body */
+@layer base {
+  body {
+    @apply bg-background font-sans text-foreground;
+  }
+}
