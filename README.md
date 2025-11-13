@@ -14,5 +14,6 @@ Backend:
 Advanced features:
 - Find other articles on the same topic, return titles, publishers, and urls. Add them to the end of the list of claims breakdown in a dedicated section.
 - Ability to switch between different AI apis in the settings tab. Nice to have and helps us stay within free-tier limits of different services.
+- Add a source reputability score for each source link 
 
 
