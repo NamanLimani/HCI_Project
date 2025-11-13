@@ -1,6 +1,6 @@
 import ClaimCard from './ClaimCard'
 
-export default function ClaimsList({ claims, onViewDetails, filter }) {
+export default function ClaimsList({ claims, filter }) {
   const filteredClaims = filter 
     ? claims.filter(claim => claim.status === filter)
     : claims
@@ -11,11 +11,10 @@ export default function ClaimsList({ claims, onViewDetails, filter }) {
         Claims Breakdown
       </h3>
       
-      {filteredClaims.map((claim) => (
+      {filteredClaims.map((claim, index) => (
         <ClaimCard 
-          key={claim.id} 
-          claim={claim} 
-          onViewDetails={onViewDetails}
+          key={index} 
+          claim={claim}
         />
       ))}
 
@@ -27,3 +26,4 @@ export default function ClaimsList({ claims, onViewDetails, filter }) {
     </div>
   )
 }
+
