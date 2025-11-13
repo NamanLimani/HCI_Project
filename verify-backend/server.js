@@ -573,11 +573,35 @@ const safetySettings = [
 
 /**
  * =================================================================
+ * HELPER: Sanitize text to remove problematic Unicode characters
+ * =================================================================
+ */
+function sanitizeText(text) {
+  // Convert to string if not already
+  if (typeof text !== 'string') {
+    text = String(text);
+  }
+  
+  // Replace problematic Unicode characters with ASCII equivalents or remove them
+  return text
+    // Keep basic ASCII and common Latin-1 (codes 0-255) but remove high Unicode
+    .replace(/[\u0300-\u036F]/g, '') // Remove combining diacritical marks
+    .replace(/[\u0400-\uFFFF]/g, '') // Remove Cyrillic, CJK, and other high Unicode
+    .replace(/\s+/g, ' ') // Normalize whitespace
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '') // Remove control characters
+    .trim();
+}
+
+/**
+ * =================================================================
  * NEW CENTRAL HELPER FUNCTION: callGemini (with Bugfix)
  * =================================================================
  */
 async function callGemini(systemPrompt, userPrompt, schema, useWebSearch = false) {
   try {
+    // Sanitize the user prompt to remove problematic Unicode characters
+    const sanitizedPrompt = sanitizeText(userPrompt);
+    
     const modelConfig = {
       model: geminiModelName,
       safetySettings,
@@ -601,7 +625,7 @@ async function callGemini(systemPrompt, userPrompt, schema, useWebSearch = false
     }
 
     const model = genAI.getGenerativeModel(modelConfig);
-    const result = await model.generateContent(userPrompt);
+    const result = await model.generateContent(sanitizedPrompt);
     const response = await result.response;
     const text = response.text();
 
