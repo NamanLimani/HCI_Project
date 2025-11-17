@@ -1,16 +1,52 @@
-# React + Vite
+# Verify Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Chrome extension frontend for the Verify fact-checking tool, built with React and Vite.
 
-Currently, two official plugins are available:
+## Setup
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+1. Install dependencies:
+```bash
+npm install
+```
 
-## React Compiler
+## Dependencies
 
-The React Compiler is currently not compatible with SWC. See [this issue](https://github.com/vitejs/vite-plugin-react/issues/428) for tracking the progress.
+### Production Dependencies
+- **react** & **react-dom**: React framework
+- **lucide-react**: Icon library
+- **jspdf**: PDF generation library for exporting analysis reports (required for PDF export feature)
 
-## Expanding the ESLint configuration
+### Development Dependencies
+- **vite**: Build tool
+- **@vitejs/plugin-react-swc**: React plugin for Vite with SWC
+- **tailwindcss**: CSS framework
+- **eslint**: Linting
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## Development
+
+Run the development server:
+```bash
+npm run dev
+```
+
+## Build
+
+Build for production:
+```bash
+npm run build
+```
+
+The built files will be in the `dist/` directory, ready to be loaded as a Chrome extension.
+
+## Features
+
+- Real-time analysis of web articles
+- Dynamic claim verification with streaming updates
+- PDF export functionality (requires jsPDF)
+- Full analysis view in sidebar
+- Page highlighting of verified claims
+
+## Notes
+
+- **jsPDF** is required for the PDF export feature. It's included in the dependencies and will be installed automatically with `npm install`.
+- The extension requires a running backend server (see backend README for setup).

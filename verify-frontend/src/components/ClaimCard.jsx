@@ -4,7 +4,7 @@ import verifiedIcon from '../assets/icons/verified-mark.svg'
 import exclamationIcon from '../assets/icons/exclamation-mark.svg'
 import xIcon from '../assets/icons/x-mark.svg'
 
-export default function ClaimCard({ claim }) {
+export default function ClaimCard({ claim, onShowFullAnalysis }) {
   const [isExpanded, setIsExpanded] = useState(false)
 
   const statusConfig = {
@@ -79,18 +79,20 @@ export default function ClaimCard({ claim }) {
               </div>
             )}
             
-            {claim.sourceUrl && (
-              <div className="pt-2">
-                <a
-                  href={claim.sourceUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 text-primary font-medium hover:text-primary-hover transition-colors"
-                >
-                  Visit Source →
-                </a>
-              </div>
-            )}
+            <div className="pt-2">
+              <button
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  if (onShowFullAnalysis) {
+                    onShowFullAnalysis(claim);
+                  }
+                }}
+                className="inline-flex items-center gap-1 px-3 py-1.5 rounded bg-primary text-white text-[11px] font-medium hover:bg-primary-hover transition-colors"
+              >
+                View Full Analysis →
+              </button>
+            </div>
           </div>
         </div>
       )}

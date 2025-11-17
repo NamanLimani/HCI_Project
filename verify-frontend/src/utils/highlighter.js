@@ -1,24 +1,24 @@
 // This function will be injected onto the webpage
-// It is complex because it safely finds text without breaking the page's HTML
+// It finds the exact sentence from each claim and highlights it
 export function highlightClaimsOnPage(claims) {
-  // First, let's inject our CSS styles into the page
+  // Inject CSS styles
   const styleId = 'verify-highlight-styles';
   if (!document.getElementById(styleId)) {
     const style = document.createElement('style');
     style.id = styleId;
     style.innerHTML = `
       .verify-highlight-verified {
-        background-color: rgba(176, 220, 135, 0.5); /* trusted-leaf with 50% opacity */
+        background-color: rgba(176, 220, 135, 0.5);
         padding: 2px 0;
         border-radius: 3px;
       }
       .verify-highlight-disputed {
-        background-color: rgba(223, 141, 141, 0.5); /* concerned-coral with 50% opacity */
+        background-color: rgba(223, 141, 141, 0.5);
         padding: 2px 0;
         border-radius: 3px;
       }
       .verify-highlight-questionable {
-        background-color: rgba(243, 231, 136, 0.5); /* hello-yellow with 50% opacity */
+        background-color: rgba(243, 231, 136, 0.5);
         padding: 2px 0;
         border-radius: 3px;
       }
@@ -26,141 +26,83 @@ export function highlightClaimsOnPage(claims) {
     document.head.appendChild(style);
   }
 
-  // A helper to get the right CSS class
+  // Get the right CSS class for each status
   const getHighlightClass = (status) => {
     if (status === 'Verified') return 'verify-highlight-verified';
     if (status === 'Disputed') return 'verify-highlight-disputed';
     return 'verify-highlight-questionable';
   };
 
-  // This is a list of HTML tags we should not search inside
-  const excludedTags = ['SCRIPT', 'STYLE', 'NOSCRIPT', 'IFRAME', 'OBJECT', 'EMBED', 'HEADER', 'FOOTER', 'NAV'];
+  // Tags we should not search inside
+  const excludedTags = ['SCRIPT', 'STYLE', 'NOSCRIPT', 'IFRAME', 'OBJECT', 'EMBED'];
 
-  // TreeWalker is the "correct" way to find all text nodes on a page
-  const walker = document.createTreeWalker(
-    document.body,
-    NodeFilter.SHOW_TEXT,
-    (node) => {
-      // Reject text nodes that are inside our excluded tags
-      if (excludedTags.includes(node.parentElement.tagName)) {
-        return NodeFilter.FILTER_REJECT;
-      }
-      // Reject empty/whitespace-only text nodes
-      if (node.textContent.trim().length === 0) {
-        return NodeFilter.FILTER_REJECT;
-      }
-      return NodeFilter.FILTER_ACCEPT;
-    }
-  );
-
-  // Helper function to find the best matching text segment
-  function findBestMatch(textNodes, claimText) {
-    // Strategy 1: Try exact match (case-insensitive)
-    for (let i = 0; i < textNodes.length; i++) {
-      const text = textNodes[i].textContent;
-      const lowerText = text.toLowerCase();
-      const lowerClaim = claimText.toLowerCase();
-      const index = lowerText.indexOf(lowerClaim);
-      
-      if (index !== -1) {
-        return { node: textNodes[i], index, length: claimText.length, method: 'exact' };
-      }
-    }
-    
-    // Strategy 2: Extract key phrases (4+ words) and try to match those
-    const words = claimText.split(/\s+/);
-    if (words.length >= 4) {
-      // Try to find sequences of 4+ consecutive words
-      for (let phraseLength = words.length; phraseLength >= 4; phraseLength--) {
-        for (let start = 0; start <= words.length - phraseLength; start++) {
-          const phrase = words.slice(start, start + phraseLength).join(' ');
-          const lowerPhrase = phrase.toLowerCase();
-          
-          for (let i = 0; i < textNodes.length; i++) {
-            const text = textNodes[i].textContent;
-            const lowerText = text.toLowerCase();
-            const index = lowerText.indexOf(lowerPhrase);
-            
-            if (index !== -1) {
-              return { node: textNodes[i], index, length: phrase.length, method: 'phrase' };
-            }
-          }
-        }
-      }
-    }
-    
-    return null; // No match found
-  }
-
-  // Loop over each claim from our analysis
+  // Process each claim
   claims.forEach((claim, claimIndex) => {
-    const claimText = claim.claim;
+    const sentence = claim.originalSentence || claim.claim;
     const highlightClass = getHighlightClass(claim.status);
     
-    console.log(`[Verify] Attempting to highlight claim ${claimIndex + 1}:`, claimText);
+    console.log(`[Verify] Highlighting claim ${claimIndex + 1}:`, sentence);
 
-    // Rebuild the text nodes list for each claim since DOM changes after each highlight
+    // Get all text nodes that haven't been highlighted yet
     const walker = document.createTreeWalker(
       document.body,
       NodeFilter.SHOW_TEXT,
       (node) => {
-        // Reject text nodes that are inside our excluded tags or highlight spans
         const parentTag = node.parentElement.tagName;
         const parentClass = node.parentElement.className;
         
-        if (excludedTags.includes(parentTag)) {
-          return NodeFilter.FILTER_REJECT;
-        }
-        // Skip already highlighted text
+        // Skip excluded tags and already highlighted text
+        if (excludedTags.includes(parentTag)) return NodeFilter.FILTER_REJECT;
         if (parentClass && typeof parentClass === 'string' && parentClass.includes('verify-highlight')) {
           return NodeFilter.FILTER_REJECT;
         }
-        // Reject empty/whitespace-only text nodes
-        if (node.textContent.trim().length === 0) {
-          return NodeFilter.FILTER_REJECT;
-        }
+        if (node.textContent.trim().length === 0) return NodeFilter.FILTER_REJECT;
+        
         return NodeFilter.FILTER_ACCEPT;
       }
     );
 
-    const allTextNodes = [];
+    const textNodes = [];
     let node;
     while ((node = walker.nextNode())) {
-      allTextNodes.push(node);
+      textNodes.push(node);
     }
 
-    console.log(`[Verify] Found ${allTextNodes.length} text nodes to search`);
+    // Try to find the sentence in the text nodes
+    const searchText = sentence.toLowerCase().trim();
+    let found = false;
 
-    // Try to find the best match
-    const match = findBestMatch(allTextNodes, claimText);
-    
-    if (match) {
-      console.log(`[Verify] Found ${match.method} match, highlighting...`);
+    for (let i = 0; i < textNodes.length; i++) {
+      const nodeText = textNodes[i].textContent;
+      const lowerText = nodeText.toLowerCase();
+      const index = lowerText.indexOf(searchText);
       
-      const { node, index, length } = match;
-      const text = node.textContent;
-      
-      // 1. Create the highlight span with the ORIGINAL case from the page
-      const span = document.createElement('span');
-      span.className = highlightClass;
-      span.textContent = text.substring(index, index + length);
+      if (index !== -1) {
+        // Found it! Highlight the exact sentence
+        const beforeText = nodeText.substring(0, index);
+        const matchText = nodeText.substring(index, index + searchText.length);
+        const afterText = nodeText.substring(index + searchText.length);
+        
+        const span = document.createElement('span');
+        span.className = highlightClass;
+        span.textContent = matchText;
 
-      // 2. Get the text that comes *before* the match
-      const beforeText = document.createTextNode(text.substring(0, index));
-      
-      // 3. Get the text that comes *after* the match
-      const afterText = document.createTextNode(text.substring(index + length));
-
-      // 4. Replace the original text node with: [before] + [highlight] + [after]
-      const parent = node.parentNode;
-      if (parent) {
-        parent.insertBefore(beforeText, node);
-        parent.insertBefore(span, node);
-        parent.insertBefore(afterText, node);
-        parent.removeChild(node);
+        const parent = textNodes[i].parentNode;
+        if (parent) {
+          if (beforeText) parent.insertBefore(document.createTextNode(beforeText), textNodes[i]);
+          parent.insertBefore(span, textNodes[i]);
+          if (afterText) parent.insertBefore(document.createTextNode(afterText), textNodes[i]);
+          parent.removeChild(textNodes[i]);
+        }
+        
+        found = true;
+        console.log(`[Verify] ✓ Highlighted successfully`);
+        break;
       }
-    } else {
-      console.log(`[Verify] Could not find any match for claim ${claimIndex + 1}`);
+    }
+
+    if (!found) {
+      console.log(`[Verify] ✗ Could not find sentence in page`);
     }
   });
 }

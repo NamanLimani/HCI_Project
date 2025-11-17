@@ -1092,14 +1092,22 @@ async function extractClaims(articleText) {
 IMPORTANT:
 1. Extract 5-7 of the most important factual claims.
 2. DO NOT include any citations (e.g., [1][5]).
-3. Simplify the claim. For example, "The claim that 'the earth is flat' contradicts evidence[2]" should become "The earth is flat."`;
+3. Simplify the claim. For example, "The claim that 'the earth is flat' contradicts evidence[2]" should become "The earth is flat."
+4. For each claim, you MUST also provide the ORIGINAL SENTENCE from the article text where this claim appears. This should be the exact sentence as it appears in the article, not a simplified version.`;
   
   const schema = {
     type: "OBJECT",
     properties: {
       claims: {
         type: "ARRAY",
-        items: { type: "STRING" },
+        items: {
+          type: "OBJECT",
+          properties: {
+            claim: { type: "STRING", description: "The simplified, clean claim text" },
+            originalSentence: { type: "STRING", description: "The exact original sentence from the article where this claim appears" }
+          },
+          required: ['claim', 'originalSentence']
+        },
       },
     },
     required: ['claims'],
@@ -1322,43 +1330,163 @@ app.post('/analyze', async (req, res) => {
     console.log(`On URL: ${articleUrl}`);
     console.log("===================================");
 
-    console.log("Step 1: Running parallel tasks (Claims, Sentiment, Authorship, Site)...");
-    
-    const [rawClaims, sentimentResult, authorshipResult, siteResult] = await Promise.all([
-      extractClaims(articleText),
-      analyzeSentiment(articleText),
-      analyzeAuthorship(articleText),
-      analyzeSite(articleUrl)
-    ]);
-    
-    console.log(`Step 1 Complete: Found ${rawClaims.length} raw claims.`);
-    console.log("Step 2: Verifying claims one by one...");
-    
-    const verificationResults = []; 
-    for (const rawClaim of rawClaims) {
-      const cleanClaim = rawClaim.replace(/\[.*?\]/g, '').trim();
-      if (cleanClaim.length < 10) {
-        console.log(`Skipping junk claim: "${rawClaim}"`);
-        continue; 
-      }
-      const result = await verifyClaim(cleanClaim);
-      verificationResults.push(result);
-    }
-    
-    console.log("Step 2 Complete: All claims verified.");
-    console.log("===================================");
+    // Set up SSE headers
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('Access-Control-Allow-Origin', '*');
 
-    res.json({
-      status: "success",
-      siteAnalysis: siteResult,
-      sentiment: sentimentResult,
-      authorship: authorshipResult,
-      results: verificationResults
-    });
+    // Helper function to send SSE events
+    const sendEvent = (type, data) => {
+      const eventData = `event: ${type}\ndata: ${JSON.stringify(data)}\n\n`;
+      res.write(eventData);
+      // Force flush to ensure data is sent immediately
+      if (res.flush) res.flush();
+    };
+
+    try {
+      console.log("Step 1: Running parallel tasks (Claims, Sentiment, Authorship, Site)...");
+      sendEvent('status', { message: 'Extracting claims and analyzing article...' });
+      
+      const [rawClaims, sentimentResult, authorshipResult, siteResult] = await Promise.all([
+        extractClaims(articleText),
+        analyzeSentiment(articleText),
+        analyzeAuthorship(articleText),
+        analyzeSite(articleUrl)
+      ]);
+      
+      console.log(`Step 1 Complete: Found ${rawClaims.length} raw claims.`);
+      
+      // Send Step 1 results as they complete
+      sendEvent('step1', {
+        siteAnalysis: siteResult,
+        sentiment: sentimentResult,
+        authorship: authorshipResult,
+        rawClaimsCount: rawClaims.length
+      });
+      
+      console.log("Step 2: Verifying claims one by one...");
+      sendEvent('status', { message: `Verifying ${rawClaims.length} claims...` });
+      
+      const verificationResults = []; 
+      for (let i = 0; i < rawClaims.length; i++) {
+        const rawClaimObj = rawClaims[i];
+        // Handle both old format (string) and new format (object)
+        const claimText = typeof rawClaimObj === 'string' ? rawClaimObj : rawClaimObj.claim;
+        const originalSentence = typeof rawClaimObj === 'string' ? null : rawClaimObj.originalSentence;
+        
+        const cleanClaim = claimText.replace(/\[.*?\]/g, '').trim();
+        if (cleanClaim.length < 10) {
+          console.log(`Skipping junk claim: "${claimText}"`);
+          continue; 
+        }
+        
+        sendEvent('status', { message: `Verifying claim ${i + 1}/${rawClaims.length}...` });
+        const result = await verifyClaim(cleanClaim);
+        
+        // Add the original sentence to the result
+        result.originalSentence = originalSentence || cleanClaim;
+        
+        verificationResults.push(result);
+        
+        // Send each claim as it's verified
+        sendEvent('claim', result);
+      }
+      
+      console.log("Step 2 Complete: All claims verified.");
+      console.log("===================================");
+
+      // Send final complete event
+      sendEvent('complete', {
+        status: "success",
+        totalClaims: verificationResults.length
+      });
+
+      res.end();
+
+    } catch (error) {
+      console.error("Error during analysis:", error.message);
+      sendEvent('error', { error: error.message });
+      res.end();
+    }
 
   } catch (error) {
     console.error("Error in /analyze endpoint:", error.message);
-    res.status(500).json({ error: "An internal server error occurred." });
+    if (!res.headersSent) {
+      res.status(500).json({ error: "An internal server error occurred." });
+    }
+  }
+});
+
+/**
+ * =================================================================
+ * ENDPOINT: /additional-sources
+ * =================================================================
+ */
+app.post('/additional-sources', async (req, res) => {
+  try {
+    const { claim, currentSource } = req.body;
+    
+    if (!claim) {
+      return res.status(400).json({ error: "claim is required" });
+    }
+
+    console.log("===================================");
+    console.log("ADDITIONAL SOURCES REQUEST");
+    console.log(`Claim: "${claim}"`);
+    console.log("===================================");
+
+    const systemPrompt = `You are a research assistant helping to verify claims by finding additional credible sources.
+
+Given a claim, search the web and find 3-5 additional credible sources that discuss, verify, or dispute this claim.
+
+For each source, provide:
+1. The title of the article/source
+2. A brief summary of what the source says about the claim
+3. The source name (e.g., "BBC News", "Nature Journal", "Reuters")
+4. The URL
+5. Publication date if available
+
+Focus on credible, authoritative sources like:
+- Major news organizations (Reuters, AP, BBC, NYT, WSJ)
+- Academic journals and research institutions
+- Government sources and official statistics
+- Established fact-checking organizations (Snopes, FactCheck.org, PolitiFact)
+
+Avoid personal blogs, social media posts, or unreliable sources.`;
+
+    const schema = {
+      type: 'object',
+      properties: {
+        sources: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              title: { type: 'string' },
+              summary: { type: 'string' },
+              source: { type: 'string' },
+              url: { type: 'string' },
+              date: { type: 'string' }
+            },
+            required: ['title', 'summary', 'source']
+          }
+        }
+      },
+      required: ['sources']
+    };
+
+    const result = await callGemini(systemPrompt, claim, schema, true); // Web search enabled
+    console.log(`   -> Found ${result.sources.length} additional sources`);
+
+    res.json({
+      status: "success",
+      sources: result.sources
+    });
+
+  } catch (error) {
+    console.error("Error in /additional-sources endpoint:", error.message);
+    res.status(500).json({ error: "Failed to fetch additional sources." });
   }
 });
 
