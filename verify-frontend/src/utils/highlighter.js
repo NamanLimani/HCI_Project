@@ -78,7 +78,7 @@ export function highlightClaimsOnPage(claims) {
       const index = lowerText.indexOf(searchText);
       
       if (index !== -1) {
-        // Found it! Highlight the exact sentence
+        // Highlight the exact sentence
         const beforeText = nodeText.substring(0, index);
         const matchText = nodeText.substring(index, index + searchText.length);
         const afterText = nodeText.substring(index + searchText.length);
