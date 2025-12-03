@@ -1,7 +1,7 @@
 // This function will be injected onto the webpage
 // It finds the exact sentence from each claim and highlights it
 export function highlightClaimsOnPage(claims) {
-  // Inject CSS styles
+  // 1. Inject CSS styles if they don't exist
   const styleId = 'verify-highlight-styles';
   if (!document.getElementById(styleId)) {
     const style = document.createElement('style');
@@ -9,102 +9,74 @@ export function highlightClaimsOnPage(claims) {
     style.innerHTML = `
       .verify-highlight-verified {
         background-color: rgba(176, 220, 135, 0.5);
-        padding: 2px 0;
-        border-radius: 3px;
+        cursor: pointer;
       }
       .verify-highlight-disputed {
         background-color: rgba(223, 141, 141, 0.5);
-        padding: 2px 0;
-        border-radius: 3px;
+        cursor: pointer;
       }
       .verify-highlight-questionable {
         background-color: rgba(243, 231, 136, 0.5);
-        padding: 2px 0;
-        border-radius: 3px;
+        cursor: pointer;
       }
     `;
     document.head.appendChild(style);
   }
 
-  // Get the right CSS class for each status
   const getHighlightClass = (status) => {
     if (status === 'Verified') return 'verify-highlight-verified';
     if (status === 'Disputed') return 'verify-highlight-disputed';
     return 'verify-highlight-questionable';
   };
 
-  // Tags we should not search inside
-  const excludedTags = ['SCRIPT', 'STYLE', 'NOSCRIPT', 'IFRAME', 'OBJECT', 'EMBED'];
-
-  // Process each claim
+  // 2. Process each claim
   claims.forEach((claim, claimIndex) => {
     const sentence = claim.originalSentence || claim.claim;
     const highlightClass = getHighlightClass(claim.status);
     
     console.log(`[Verify] Highlighting claim ${claimIndex + 1}:`, sentence);
 
-    // Get all text nodes that haven't been highlighted yet
-    const walker = document.createTreeWalker(
-      document.body,
-      NodeFilter.SHOW_TEXT,
-      (node) => {
-        const parentTag = node.parentElement.tagName;
-        const parentClass = node.parentElement.className;
-        
-        // Skip excluded tags and already highlighted text
-        if (excludedTags.includes(parentTag)) return NodeFilter.FILTER_REJECT;
-        if (parentClass && typeof parentClass === 'string' && parentClass.includes('verify-highlight')) {
-          return NodeFilter.FILTER_REJECT;
-        }
-        if (node.textContent.trim().length === 0) return NodeFilter.FILTER_REJECT;
-        
-        return NodeFilter.FILTER_ACCEPT;
-      }
-    );
+    // 3. Use window.find() - This is the robust "Search in Page" method
+    // It works even if the text crosses HTML tags (like <b> or <i>)
+    try {
+      // Clear any existing selection to start clean
+      const selection = window.getSelection();
+      selection.removeAllRanges();
 
-    const textNodes = [];
-    let node;
-    while ((node = walker.nextNode())) {
-      textNodes.push(node);
-    }
+      // window.find(string, caseSensitive, backward, wrapAround, wholeWord, searchInFrames, showDialog)
+      const found = window.find(sentence, false, false, true, false, true, false);
 
-    // Try to find the sentence in the text nodes
-    const searchText = sentence.toLowerCase().trim();
-    let found = false;
-
-    for (let i = 0; i < textNodes.length; i++) {
-      const nodeText = textNodes[i].textContent;
-      const lowerText = nodeText.toLowerCase();
-      const index = lowerText.indexOf(searchText);
-      
-      if (index !== -1) {
-        // Highlight the exact sentence
-        const beforeText = nodeText.substring(0, index);
-        const matchText = nodeText.substring(index, index + searchText.length);
-        const afterText = nodeText.substring(index + searchText.length);
+      if (found) {
+        // If found, the text is now "selected". We grab that range.
+        const range = selection.getRangeAt(0);
         
+        // Create our highlight span
         const span = document.createElement('span');
         span.className = highlightClass;
-        span.textContent = matchText;
-
-        const parent = textNodes[i].parentNode;
-        if (parent) {
-          if (beforeText) parent.insertBefore(document.createTextNode(beforeText), textNodes[i]);
-          parent.insertBefore(span, textNodes[i]);
-          if (afterText) parent.insertBefore(document.createTextNode(afterText), textNodes[i]);
-          parent.removeChild(textNodes[i]);
-        }
+        span.title = `Status: ${claim.status}`;
         
-        found = true;
-        console.log(`[Verify] ✓ Highlighted successfully`);
-        break;
-      }
-    }
+        // Wrap the found text in our span
+        try {
+          range.surroundContents(span);
+          console.log(`[Verify] ✓ Highlighted successfully`);
+        } catch (e) {
+          // surroundContents fails if the range splits a non-text node partially. 
+          // This is a rare edge case with window.find, but usually acceptable to skip.
+          console.warn(`[Verify] Could not wrap simplified range:`, e);
+        }
 
-    if (!found) {
-      console.log(`[Verify] ✗ Could not find sentence in page`);
+        // Collapse selection so the user doesn't see blue text selection
+        selection.collapseToEnd();
+      } else {
+        console.log(`[Verify] ✗ Could not find sentence in page via window.find()`);
+      }
+    } catch (e) {
+      console.error(`[Verify] Error during highlighting:`, e);
     }
   });
+  
+  // Clear selection one last time to be clean
+  window.getSelection().removeAllRanges();
 }
 
 // This function will be injected to remove all highlights
@@ -118,13 +90,14 @@ export function clearHighlightsOnPage() {
   classes.forEach(cls => {
     const highlights = document.querySelectorAll(cls);
     highlights.forEach(span => {
-      // Replace the <span> with its own text content
+      // Replace the <span> with its own text content (unwrap it)
       const parent = span.parentNode;
-      parent.replaceChild(document.createTextNode(span.textContent), span);
-      // This is a simple version. A more robust version would merge adjacent text nodes.
+      while (span.firstChild) {
+        parent.insertBefore(span.firstChild, span);
+      }
+      parent.removeChild(span);
     });
   });
   
-  // Optional: Clean up merged text nodes
   document.body.normalize(); 
 }

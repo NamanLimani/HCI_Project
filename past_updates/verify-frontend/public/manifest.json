@@ -1,0 +1,28 @@
+{
+  "manifest_version": 3,
+  "name": "Verify",
+  "version": "1.0",
+  "description": "Analyzes articles for claims, bias, and authorship.",
+  "permissions": [
+    "sidePanel",
+    "activeTab",
+    "scripting"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "action": {
+    "default_title": "Click to open Verify panel"
+  },
+  "icons": {
+    "16": "extension-icon.png",
+    "48": "extension-icon.png",
+    "128": "extension-icon.png"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "side_panel": {
+    "default_path": "index.html"
+  }
+}
