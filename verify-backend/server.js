@@ -6,7 +6,6 @@ require('dotenv').config();
 // 2. Import all our libraries
 const express = require('express');
 const cors = require('cors');
-const axios = require('axios'); 
 const { URL } = require('url');
 
 // NEW: Import the Google Gemini library
@@ -18,7 +17,6 @@ const {
 
 // 3. Store our secret keys in variables
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY; 
-const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY; 
 
 // 4. Initialize our Express application
 const app = express();
@@ -26,16 +24,13 @@ const PORT = 3001;
 app.use(cors()); 
 app.use(express.json({ limit: '10mb' })); 
 
-// 5. Define API URLs
-const GOOGLE_FACT_CHECK_API_URL = 'https://factchecktools.googleapis.com/v1alpha1/claims:search';
-
-// 6. NEW: Initialize Google Gemini Client
+// 5. NEW: Initialize Google Gemini Client
 const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
 
 // =================================================================
 // 🤖 MODEL SELECTOR
 // =================================================================
-// Currently set to 2.0 Flash Lite (0/30 RPM) as per your quota.
+// Currently set to 2.0 Flash Lite (0/30 RPM)
 const geminiModelName = "gemini-2.0-flash";
 
 const safetySettings = [
@@ -170,35 +165,7 @@ async function verifyClaim(claimText) {
   console.log(`Verifying claim: "${claimText}"`);
   
   try {
-    const googleResponse = await axios.get(GOOGLE_FACT_CHECK_API_URL, {
-      params: { query: claimText, key: GOOGLE_API_KEY }
-    });
-
-    if (googleResponse.data.claims && googleResponse.data.claims.length > 0) {
-      const firstClaim = googleResponse.data.claims[0];
-      const claimReview = firstClaim.claimReview[0];
-      const rating = claimReview.textualRating; 
-
-      console.log(`   -> Google Found: ${rating} (Source: ${claimReview.publisher.name})`);
-
-      let status = "Questionable";
-      if (rating.toLowerCase().includes("true")) status = "Verified";
-      if (rating.toLowerCase().includes("false") || rating.toLowerCase().includes("misleading")) status = "Disputed";
-      
-      return {
-        claim: claimText,
-        status: status,
-        source: claimReview.publisher.name,
-        sourceUrl: claimReview.url,
-        explanation: `Rating: ${rating}`,
-        sourceScore: 95,
-        sourceReputation: 'High'
-      };
-    }
-
-    console.log("   -> Google found nothing. Corroborating with Gemini...");
     return await corroborateWithGemini(claimText); 
-
   } catch (error) {
     console.error(`   -> Error verifying claim "${claimText}":`, error.message);
     return {
@@ -398,27 +365,11 @@ app.post('/analyze', async (req, res) => {
     };
 
     try {
-      console.log("Step 1: Running tasks SEQUENTIALLY to avoid Rate Limit...");
-      sendEvent('status', { message: 'Extracting claims and analyzing article...' });
+      console.log("Step 1: Extracting claims first for faster highlights...");
+      sendEvent('status', { message: 'Extracting claims...' });
       
       const rawClaims = await extractClaims(articleText);
-      await delay(1000); 
-
-      const sentimentResult = await analyzeSentiment(articleText);
-      await delay(1000); 
-
-      const authorshipResult = await analyzeAuthorship(articleText);
-      await delay(1000); 
-
-      const siteResult = await analyzeSite(articleUrl);
-      await delay(1000); 
-      
-      sendEvent('step1', {
-        siteAnalysis: siteResult,
-        sentiment: sentimentResult,
-        authorship: authorshipResult,
-        rawClaimsCount: rawClaims.length
-      });
+      await delay(500); 
       
       console.log("Step 2: Verifying claims one by one...");
       sendEvent('status', { message: `Verifying ${rawClaims.length} claims...` });
@@ -446,6 +397,25 @@ app.post('/analyze', async (req, res) => {
         verificationResults.push(result);
         sendEvent('claim', result);
       }
+
+      console.log("Step 3: Running sentiment, bias, authorship, and site analysis...");
+      sendEvent('status', { message: 'Running sentiment, bias, and site analysis...' });
+      
+      const sentimentResult = await analyzeSentiment(articleText);
+      await delay(500); 
+
+      const authorshipResult = await analyzeAuthorship(articleText);
+      await delay(500); 
+
+      const siteResult = await analyzeSite(articleUrl);
+      await delay(500); 
+      
+      sendEvent('step1', {
+        siteAnalysis: siteResult,
+        sentiment: sentimentResult,
+        authorship: authorshipResult,
+        rawClaimsCount: rawClaims.length
+      });
       
       sendEvent('complete', {
         status: "success",
@@ -624,11 +594,5 @@ app.listen(PORT, () => {
     console.log("Gemini API Key loaded successfully!");
   } else {
     console.error("ERROR: GEMINI_API_KEY not found. Did you create .env and add it?");
-  }
-  
-  if (GOOGLE_API_KEY) {
-    console.log("Google Fact Check API Key loaded successfully!");
-  } else {
-    console.error("ERROR: GOOGLE_API_KEY not found.");
   }
 });

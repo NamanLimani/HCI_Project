@@ -24,6 +24,39 @@ export default function PopupApp() {
   const [autoRun, setAutoRun] = useState(false);
   const [apiKey, setApiKey] = useState('');
 
+  useEffect(() => {
+    try {
+      chrome?.storage?.local?.get?.(['autoRunEnabled'], (res) => {
+        setAutoRun(Boolean(res?.autoRunEnabled));
+      });
+    } catch (err) {
+      console.warn('Failed to read auto-run setting', err);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!activeTab?.url) return;
+    try {
+      chrome?.storage?.local?.get?.(['lastAnalyzedUrl'], (res) => {
+        if (res?.lastAnalyzedUrl === activeTab.url) {
+          setAnalyzedUrl(activeTab.url);
+        }
+      });
+    } catch (err) {
+      console.warn('Failed to read last analyzed url', err);
+    }
+  }, [activeTab]);
+
+  const markAnalyzed = (url) => {
+    if (!url) return;
+    setAnalyzedUrl(url);
+    try {
+      chrome?.storage?.local?.set?.({ lastAnalyzedUrl: url });
+    } catch (err) {
+      console.warn('Failed to persist analyzed url', err);
+    }
+  };
+
   const appendLog = (entry) => {
     setLogs((prev) => [...prev, { id: crypto.randomUUID(), text: entry, ts: Date.now() }]);
   };
@@ -99,7 +132,7 @@ export default function PopupApp() {
         runHighlight(data.results || []);
         appendLog('Analysis complete.');
         setLoadingStatus('');
-        if (activeTab?.url) setAnalyzedUrl(activeTab.url);
+        if (activeTab?.url) markAnalyzed(activeTab.url);
         setIsLoading(false);
         return;
       }
@@ -160,7 +193,7 @@ export default function PopupApp() {
       }
 
       setLoadingStatus('');
-      if (activeTab?.url) setAnalyzedUrl(activeTab.url);
+      if (activeTab?.url) markAnalyzed(activeTab.url);
     } catch (e) {
       console.error(e);
       setError(`Analysis failed. ${e.message}`);
@@ -199,7 +232,17 @@ export default function PopupApp() {
           <div>
             <h2 className="text-sm font-semibold text-gray-900 mb-2">Run analysis automatically</h2>
             <button
-              onClick={() => setAutoRun((v) => !v)}
+              onClick={() =>
+                setAutoRun((v) => {
+                  const next = !v;
+                  try {
+                    chrome?.storage?.local?.set?.({ autoRunEnabled: next });
+                  } catch (err) {
+                    console.warn('Failed to persist auto-run toggle', err);
+                  }
+                  return next;
+                })
+              }
               className={`w-full px-4 py-2.5 rounded-full font-semibold text-[13px] border transition-all ${
                 autoRun
                   ? 'bg-primary text-white border-primary'
