@@ -11,6 +11,8 @@ export default defineConfig({
       input: {
         main: resolve(__dirname, 'index.html'),
         fullAnalysis: resolve(__dirname, 'fullAnalysis.html'),
+        popup: resolve(__dirname, 'popup.html'),
+        iframe: resolve(__dirname, 'iframe.html'),
       },
     },
   },

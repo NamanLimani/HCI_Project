@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowLeft, BookOpen, AlertCircle, CheckCircle, Clock } from 'lucide-react';
+import { ArrowLeft, AlertCircle, CheckCircle, Clock } from 'lucide-react';
 import verifiedIcon from './assets/icons/verified-mark.svg';
 import exclamationIcon from './assets/icons/exclamation-mark.svg';
 import xIcon from './assets/icons/x-mark.svg';
@@ -152,12 +152,67 @@ export default function FullAnalysisPage({ claim, onBack }) {
           )}
         </div>
 
+        {/* Additional Sources Section */}
+        <div className="bg-white rounded-lg p-4 shadow-sm">
+          <h2 className="text-base font-bold text-gray-900 mb-3">Additional Sources</h2>
+          <p className="text-xs text-gray-600 mb-4">
+            Find other sources that discuss this claim.
+          </p>
+
+          <button
+            onClick={handleLookForAdditionalSources}
+            disabled={isSearching}
+            className="w-full px-4 py-2.5 rounded-full font-semibold bg-primary text-white hover:bg-primary-hover transition-all disabled:bg-slate-400 disabled:cursor-not-allowed text-xs flex justify-center items-center gap-2"
+          >
+            {isSearching ? 'Searching...' : 'Find Sources'}
+          </button>
+
+          {error && (
+            <div className="mt-4 p-3 rounded-lg bg-disputed-bg text-disputed border border-disputed">
+              <p className="font-medium text-xs">{error}</p>
+            </div>
+          )}
+
+          {additionalSources.length > 0 && (
+            <div className="mt-4 space-y-3">
+              {additionalSources.map((source, index) => (
+                <div key={index} className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h4 className="font-semibold text-gray-900 text-xs">{source.title}</h4>
+                        {source.sourceScore && (
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold flex-shrink-0 ${getScoreColor(source.sourceScore)}`}>
+                            {source.sourceScore}/100
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-gray-700 mb-2">{source.summary}</p>
+                      <div className="flex items-center gap-3 text-[10px] text-gray-600">
+                        <span className="font-medium">{source.source}</span>
+                        {source.sourceReputation && (
+                          <span className="text-gray-400">• {source.sourceReputation} Reputation</span>
+                        )}
+                        {source.date && <span className="text-gray-400">• {source.date}</span>}
+                      </div>
+                    </div>
+                    {source.url && (
+                      <a href={source.url} target="_blank" rel="noopener noreferrer" className="flex-shrink-0 px-2.5 py-1 rounded bg-primary text-white text-[10px] font-medium hover:bg-primary-hover transition-colors">
+                        Visit
+                      </a>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
         {/* ========================================================================= */}
         {/* NEW DEEP RESEARCH SECTION                                                 */}
         {/* ========================================================================= */}
         <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-100">
           <h2 className="text-base font-bold text-gray-900 mb-3 flex items-center gap-2">
-            <BookOpen size={18} className="text-primary" />
             Deep Research
           </h2>
           <p className="text-xs text-gray-600 mb-4">
@@ -168,7 +223,7 @@ export default function FullAnalysisPage({ claim, onBack }) {
              <button
               onClick={handleDeepResearch}
               disabled={isDeepResearching}
-              className="w-full px-4 py-2.5 rounded-lg font-semibold bg-gray-900 text-white hover:bg-gray-800 transition-all disabled:bg-gray-400 disabled:cursor-not-allowed text-xs flex justify-center items-center gap-2"
+              className="w-full px-4 py-2.5 rounded-full font-semibold bg-primary text-white hover:bg-primary-hover transition-all disabled:bg-slate-400 disabled:cursor-not-allowed text-xs flex justify-center items-center gap-2"
             >
               {isDeepResearching ? 'Running Deep Dive...' : 'Run Deep Research'}
             </button>
@@ -225,62 +280,6 @@ export default function FullAnalysisPage({ claim, onBack }) {
                   </h3>
                  <p className="text-xs text-gray-600 italic">{deepResearchResult.timeline}</p>
               </div>
-            </div>
-          )}
-        </div>
-
-        {/* Additional Sources Section */}
-        <div className="bg-white rounded-lg p-4 shadow-sm">
-          <h2 className="text-base font-bold text-gray-900 mb-3">Additional Sources</h2>
-          <p className="text-xs text-gray-600 mb-4">
-            Find other sources that discuss this claim.
-          </p>
-
-          <button
-            onClick={handleLookForAdditionalSources}
-            disabled={isSearching}
-            className="px-4 py-2 rounded-lg font-semibold bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 transition-all disabled:opacity-50 disabled:cursor-not-allowed text-xs"
-          >
-            {isSearching ? 'Searching...' : 'Find Sources'}
-          </button>
-
-          {error && (
-            <div className="mt-4 p-3 rounded-lg bg-disputed-bg text-disputed border border-disputed">
-              <p className="font-medium text-xs">{error}</p>
-            </div>
-          )}
-
-          {additionalSources.length > 0 && (
-            <div className="mt-4 space-y-3">
-              {additionalSources.map((source, index) => (
-                <div key={index} className="bg-gray-50 rounded-lg p-3 border border-gray-200">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <h4 className="font-semibold text-gray-900 text-xs">{source.title}</h4>
-                        {source.sourceScore && (
-                          <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold flex-shrink-0 ${getScoreColor(source.sourceScore)}`}>
-                            {source.sourceScore}/100
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-xs text-gray-700 mb-2">{source.summary}</p>
-                      <div className="flex items-center gap-3 text-[10px] text-gray-600">
-                        <span className="font-medium">{source.source}</span>
-                        {source.sourceReputation && (
-                          <span className="text-gray-400">• {source.sourceReputation} Reputation</span>
-                        )}
-                        {source.date && <span className="text-gray-400">• {source.date}</span>}
-                      </div>
-                    </div>
-                    {source.url && (
-                      <a href={source.url} target="_blank" rel="noopener noreferrer" className="flex-shrink-0 px-2.5 py-1 rounded bg-primary text-white text-[10px] font-medium hover:bg-primary-hover transition-colors">
-                        Visit
-                      </a>
-                    )}
-                  </div>
-                </div>
-              ))}
             </div>
           )}
         </div>

@@ -14,7 +14,7 @@
     "<all_urls>"
   ],
   "action": {
-    "default_title": "Click to open Verify panel"
+    "default_title": "Verify"
   },
   "icons": {
     "16": "extension-icon.png",
@@ -24,6 +24,31 @@
   "background": {
     "service_worker": "background.js"
   },
+  "content_scripts": [
+    {
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "contentScript.js"
+      ],
+      "run_at": "document_end"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "iframe.html",
+        "popup.html",
+        "fullAnalysis.html",
+        "assets/*",
+        "extension-icon.png"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
+    }
+  ],
   "side_panel": {
     "default_path": "index.html"
   }

@@ -19,9 +19,121 @@ export function highlightClaimsOnPage(claims) {
         background-color: rgba(243, 231, 136, 0.5);
         cursor: pointer;
       }
+      .verify-tooltip {
+        position: absolute;
+        z-index: 2147483647;
+        max-width: 320px;
+        background: #ffffff;
+        border: 1px solid #e5e7eb;
+        box-shadow: 0 12px 30px rgba(0,0,0,0.12);
+        border-radius: 10px;
+        padding: 12px;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        color: #111827;
+      }
+      .verify-tooltip h4 {
+        margin: 0 0 6px 0;
+        font-size: 13px;
+        font-weight: 700;
+      }
+      .verify-tooltip p {
+        margin: 0 0 8px 0;
+        font-size: 12px;
+        line-height: 1.4;
+      }
+      .verify-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 11px;
+        font-weight: 600;
+        padding: 4px 8px;
+        border-radius: 999px;
+      }
+      .verify-pill-verified { background: #ecf8e6; color: #3f6212; }
+      .verify-pill-questionable { background: #fef3c7; color: #92400e; }
+      .verify-pill-disputed { background: #fee2e2; color: #991b1b; }
+      .verify-tooltip .verify-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 6px;
+      }
+      .verify-tooltip button {
+        border: none;
+        cursor: pointer;
+        border-radius: 8px;
+        font-size: 12px;
+        font-weight: 600;
+        padding: 7px 10px;
+      }
+      .verify-tooltip .verify-view-btn {
+        background: #0f58d6;
+        color: #fff;
+      }
+      .verify-tooltip .verify-view-btn:hover {
+        background: #0c48b1;
+      }
     `;
     document.head.appendChild(style);
   }
+
+  const getTooltipContainer = () => {
+    let container = document.getElementById('verify-hover-tooltip');
+    if (!container) {
+      container = document.createElement('div');
+      container.id = 'verify-hover-tooltip';
+      container.className = 'verify-tooltip';
+      container.style.display = 'none';
+      document.body.appendChild(container);
+    }
+    return container;
+  };
+
+  const showTooltip = (claim, targetEl) => {
+    const container = getTooltipContainer();
+    const rect = targetEl.getBoundingClientRect();
+
+    const pillClass =
+      claim.status === 'Verified'
+        ? 'verify-pill-verified'
+        : claim.status === 'Disputed'
+        ? 'verify-pill-disputed'
+        : 'verify-pill-questionable';
+
+    container.innerHTML = `
+      <div class="verify-pill ${pillClass}" style="margin-bottom:8px;">
+        <span>${claim.status || 'Claim'}</span>
+      </div>
+      <h4>Claim</h4>
+      <p>${claim.claim || 'No claim text'}</p>
+      ${
+        claim.source
+          ? `<p style="font-size:11px;color:#6b7280;">Source: ${claim.source}</p>`
+          : ''
+      }
+      ${
+        claim.explanation
+          ? `<p style="font-size:11px;color:#374151;">${claim.explanation}</p>`
+          : ''
+      }
+    `;
+
+    // Position to the right of the highlight
+    const top = rect.top + window.scrollY + rect.height + 6;
+    const left = Math.min(
+      rect.left + window.scrollX + 10,
+      window.scrollX + window.innerWidth - container.offsetWidth - 16
+    );
+    container.style.top = `${top}px`;
+    container.style.left = `${left}px`;
+    container.style.display = 'block';
+
+  };
+
+  const hideTooltip = () => {
+    const container = document.getElementById('verify-hover-tooltip');
+    if (container) container.style.display = 'none';
+  };
 
   const getHighlightClass = (status) => {
     if (status === 'Verified') return 'verify-highlight-verified';
@@ -58,6 +170,19 @@ export function highlightClaimsOnPage(claims) {
         // Wrap the found text in our span
         try {
           range.surroundContents(span);
+          span.addEventListener('mouseenter', () => showTooltip(claim, span));
+          span.addEventListener('mouseleave', hideTooltip);
+          span.addEventListener('click', () => {
+            try {
+              if (chrome?.storage?.local) {
+                chrome.storage.local.set({ selectedClaim: claim }, () => {
+                  chrome.runtime?.sendMessage({ type: 'OPEN_SIDEPANEL' });
+                });
+              }
+            } catch (err) {
+              console.warn('Could not open side panel from click', err);
+            }
+          });
           console.log(`[Verify] ✓ Highlighted successfully`);
         } catch (e) {
           // surroundContents fails if the range splits a non-text node partially. 
@@ -100,4 +225,9 @@ export function clearHighlightsOnPage() {
   });
   
   document.body.normalize(); 
+  
+  const tooltip = document.getElementById('verify-hover-tooltip');
+  if (tooltip) {
+    tooltip.remove();
+  }
 }
