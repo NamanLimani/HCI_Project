@@ -3,3 +3,5 @@
 
 # Ignore API key environment file
 .env
+
+.DS_Store
